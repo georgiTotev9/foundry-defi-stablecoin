@@ -34,6 +34,7 @@ contract DSCEngine {
     error DSCEngine__NotAllowedToken();
     error DecentralizedStableCoin__TransferFailed();
     error DSCEngine_BreaksHealthFactor(uint256 healthFactor);
+    error DSCEngine__MintFailed();
 
     ///////////////////
     // State Variables
@@ -42,7 +43,6 @@ contract DSCEngine {
     uint256 private constant PRECISION = 1e18;
     uint256 private constant LIQUIDATION_THRESHOLD = 50;
     uint256 private constant MIN_HEALTH_FACTOR = 1;
-
 
     mapping(address token => address priceFeed) private s_priceFeeds;
     mapping(address user => mapping(address token => uint256 amount)) private s_collateralDeposited;
@@ -126,6 +126,12 @@ contract DSCEngine {
     function mintDsc(uint256 amountDscToMint) external moreThanZero(amountDscToMint) {
         s_DSCMinted[msg.sender] += amountDscToMint;
         _revertIfHealthFactorIsBroken(msg.sender);
+
+        bool minted = i_dsc.mint(msg.sender, amountDscToMint);
+
+        if (minted) {
+            revert DSCEngine__MintFailed();
+        }
     }
 
     function burnDsc() external {}
@@ -147,12 +153,12 @@ contract DSCEngine {
         (uint256 totalDscMinted, uint256 collateralValueInUsd) = _getAccountInforgmation(user);
         uint256 collateralAdjustedForThreshold = (collateralValueInUsd * LIQUIDATION_THRESHOLD) / 100;
 
-        return(collateralAdjustedForThreshold * PRECISION) / totalDscMinted;
+        return (collateralAdjustedForThreshold * PRECISION) / totalDscMinted;
     }
 
     function _revertIfHealthFactorIsBroken(address user) internal view {
         uint256 userHealthFactor = _healthFactor(user);
-        if(userHealthFactor < MIN_HEALTH_FACTOR){
+        if (userHealthFactor < MIN_HEALTH_FACTOR) {
             revert DSCEngine_BreaksHealthFactor(userHealthFactor);
         }
     }
