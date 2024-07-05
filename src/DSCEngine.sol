@@ -269,4 +269,20 @@ contract DSCEngine {
     function getAccountInforgmation(address user) external view returns(uint256 totalDscMinted, uint256 collateralValueInUsd){
         (totalDscMinted, collateralValueInUsd) = _getAccountInforgmation(user);
     }
+
+     function getCollateralTokens() external view returns (address[] memory) {
+        return s_collateralTokens;
+    }
+    function getCollateralTokenPriceFeed(address token) external view returns (address) {
+        return s_priceFeeds[token];
+    }
+     function getCollateralBalanceOfUser(address user, address token) external view returns (uint256) {
+        return s_collateralDeposited[user][token];
+    }
+      function getMinHealthFactor() external pure returns (uint256) {
+        return MIN_HEALTH_FACTOR;
+    }
+    function getHealthFactor(address user) external view returns (uint256) {
+        return _healthFactor(user);
+    }
 }
