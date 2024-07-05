@@ -4,6 +4,7 @@ pragma solidity ^0.8.18;
 import {DecentralizedStableCoin} from "./DecentralizedStableCoin.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import {OracleLib} from "./libraries/OracleLib.sol";
 
 /**
  * @title DSCEngine
@@ -30,13 +31,15 @@ contract DSCEngine {
     /////////////////
 
     error DSCEngine_NeedsMoreThanZero();
-    error DSCEngine_TokenaddressesAndPriceFeedAddressesMustBeSameLength();
+    error DSCEngine_TokenAddressesAndPriceFeedAddressesMustBeSameLength();
     error DSCEngine__NotAllowedToken();
     error DSCEngine__TransferFailed();
     error DSCEngine_BreaksHealthFactor(uint256 healthFactor);
     error DSCEngine__MintFailed();
     error DSCEngine__HealthFactorOk();
     error DSCEngine__HealthFactorNotImproved();
+
+    using OracleLib for AggregatorV3Interface;
 
     ///////////////////
     // State Variables
@@ -88,7 +91,7 @@ contract DSCEngine {
 
     constructor(address[] memory tokenAddresses, address[] memory priceFeedAddresses, address dscAddress) {
         if (tokenAddresses.length != priceFeedAddresses.length) {
-            revert DSCEngine_TokenaddressesAndPriceFeedAddressesMustBeSameLength();
+            revert DSCEngine_TokenAddressesAndPriceFeedAddressesMustBeSameLength();
         }
 
         for (uint256 i = 0; i < tokenAddresses.length; i++) {
@@ -215,7 +218,6 @@ contract DSCEngine {
         _revertIfHealthFactorIsBroken(msg.sender);
     }
 
-    function getHealthFactor() external view {}
 
     function _getAccountInforgmation(address user)
         private
@@ -230,6 +232,9 @@ contract DSCEngine {
         (uint256 totalDscMinted, uint256 collateralValueInUsd) = _getAccountInforgmation(user);
         uint256 collateralAdjustedForThreshold = (collateralValueInUsd * LIQUIDATION_THRESHOLD) / 100;
 
+         if (totalDscMinted == 0) return type(uint256).max;
+
+
         return (collateralAdjustedForThreshold * PRECISION) / totalDscMinted;
     }
 
@@ -242,7 +247,7 @@ contract DSCEngine {
 
     function getTokenAmountFromUsd(address token, uint256 usdAmountInWei) public view returns (uint256) {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[token]);
-        (, int256 price,,,) = priceFeed.latestRoundData();
+        (, int256 price,,,) = priceFeed.staleCheckLatestRoundDate();
         return (usdAmountInWei * PRECISION) / (uint256(price) * ADDITIONAL_FEED_PRECISION);
     }
 
@@ -257,7 +262,11 @@ contract DSCEngine {
 
     function getUsdValue(address token, uint256 amount) public view returns (uint256) {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[token]);
-        (, int256 price,,,) = priceFeed.latestRoundData();
+        (, int256 price,,,) = priceFeed.staleCheckLatestRoundDate();
         return ((uint256(price) * ADDITIONAL_FEED_PRECISION) * amount) / PRECISION;
+    }
+
+    function getAccountInforgmation(address user) external view returns(uint256 totalDscMinted, uint256 collateralValueInUsd){
+        (totalDscMinted, collateralValueInUsd) = _getAccountInforgmation(user);
     }
 }
